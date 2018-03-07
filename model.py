@@ -178,20 +178,24 @@ def build_model(
 		)
 		# Get the input values for Lu and Cu
 
-		Cin = tf.reshape(tf.matmul( Mt, Lmsg ), (batch_size, m*d))
-		Lin = tf.reshape(tf.concat([current_L, tf.matmul(M, Cmsg)], axis=1), (batch_size, 2*(2*n)*d))
+		Cin = tf.matmul( Mt, Lmsg )
+		Cin_flat = tf.reshape(Cin, (batch_size, m*d))
+		Lin = tf.concat( [ current_L, tf.matmul( M, Cmsg ) ], axis = 1 )
+		Lin_flat = tf.reshape( Lin, (batch_size, 2*(2*n)*d) )
 
 		# Run the inputs and last states through the cells
 		with tf.variable_scope( "Cu_cell" ):
-			new_C, new_Ch = Cu_cell(
-				Cin,
+			new_C_flat, new_Ch = Cu_cell(
+				Cin_flat,
 				current_Ch
 			)
 		with tf.variable_scope( "Lu_cell" ):
-			new_L, new_Lh = Lu_cell(
-				Lin,
+			new_L_flat, new_Lh = Lu_cell(
+				Lin_flat,
 				current_Lh
 			)
+		new_L = tf.reshape( new_L_flat, [batch_size,2*n,d] )
+		new_C = tf.reshape( new_C_flat, [batch_size,m,d] )
 		# Append the values into a list, for bookkeeping
 		L.append( new_L )
 		Lh.append( new_Lh )
@@ -201,9 +205,9 @@ def build_model(
 		Ch.append( new_Ch )
 		Cm.append( Cmsg )
 		# Update current values
-		current_L = tf.reshape( new_L, [batch_size,2*n,d] )
+		current_L = new_L
 		current_Lh = new_Lh
-		current_C = tf.reshape( new_C, [batch_size,m,d] )
+		current_C = new_C
 		current_Ch = new_Ch
 	#end for
 	# Predict whether the instance is SAT for every instance in the batch
