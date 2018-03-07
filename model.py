@@ -217,7 +217,8 @@ def build_model(
 		"L_vote": Lv,
 		"C": C,
 		"Ch": Ch,
-		"C_msg": Cm
+		"C_msg": Cm,
+		"Trainable vars": tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES)
 	}
 	return M, predicted_SAT, instance_SAT, loss, train_step, var_dict
 #end build_model
