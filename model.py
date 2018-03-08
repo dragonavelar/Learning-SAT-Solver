@@ -211,9 +211,9 @@ def build_model(
 		current_Ch = new_Ch
 	#end for
 	# Predict whether the instance is SAT for every instance in the batch
-	predicted_SAT = tf.reduce_mean( Lv[-1], axis = 1 )
-	loss = tf.losses.mean_squared_error( instance_SAT, predicted_SAT )
-	train_step = tf.train.AdagradOptimizer( 0.1 ).minimize( loss )
+	predicted_SAT 	= tf.reduce_mean( Lv[-1], axis = 1 )
+	loss 			= tf.losses.mean_squared_error( instance_SAT, predicted_SAT )
+	train_step 		= tf.train.AdagradOptimizer( 2 * 10**(-5) ).minimize( loss )
 	var_dict = {
 		"L": L,
 		"Lh": Lh,
