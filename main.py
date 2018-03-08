@@ -20,17 +20,19 @@ def memory_usage():
 #end memory_usage
 
 if __name__ == "__main__":
-	time_steps = 26
+	
+	time_steps = 12
 	batch_size = 32
 	epochs = 1000
-	n = 40
-	m = 400
-	d = 128
-	Lmsg_sizes 	= [2*n*d]
-	Cmsg_sizes 	= [m*d]
-	Lvote_sizes = [32]
+	n = 5
+	m = 50
+	d = 32
+	Lmsg_sizes 	= [2*n*d,	2*n*d,	2*n*d]
+	Cmsg_sizes 	= [m*d, 	m*d,	m*d]
+	Lvote_sizes = [32,		32,		32]
 	
-	
+	# Build model
+	print("Building model ...")
 	M, pred_SAT, label_SAT, loss, train_step, var_dict = build_model( 
 		time_steps = time_steps,
 		batch_size = batch_size,
@@ -64,19 +66,32 @@ if __name__ == "__main__":
 	##end session
 
 	# Create batch generator
+	print("Creating batch generator ...")
 	generator = generator.generate(n, m, batch_size=batch_size)
 
-	with tf.Session() as sess:
-		# Initialize everything
+	# Allow GPU memory growth
+	config = tf.ConfigProto()
+	config.gpu_options.per_process_gpu_memory_fraction = 0.9
+
+	with tf.Session(config=config) as sess:
+		# Initialize global variables
+		print("Initializing global variables ... ")
 		sess.run( tf.global_variables_initializer() )
 		# Run for a number of epochs
-		for (epoch,batch) in enumerate(itertools.islice(generator,epochs)):
+		print("Running for {} epochs".format(epochs))
+		epoch = 1
+		for batch in generator:
 			# Get features, labels
 			features, labels = batch
 			# Run session
 			_, _, loss_val = sess.run( [train_step, pred_SAT, loss], feed_dict={M: features, label_SAT: labels} )
 			# Print train step and loss
-			print("Loss: {}".format(loss_val))
+			print("Epoch {} Loss: {}".format(epoch, loss_val))
+			# Increment epoch and break if necessary
+			epoch += 1
+			#if epoch >= epochs:
+			#	break
+			##end if
 		#end for
 	#end with
 

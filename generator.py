@@ -3,10 +3,14 @@ import numpy as np
 import copy
 import itertools
 import pycosat
+import time
 
 def SR(n):
 	# Add clauses while satisfiable
 	F1 = []
+	# Current solutions
+	buffer_size = 1
+	solutions = list(itertools.islice(pycosat.itersolve(F1,n),buffer_size))
 	while True:
 		"""
 			Randomly chooses 'k', the number of literals in this clause.
@@ -22,10 +26,23 @@ def SR(n):
 		C = [ int(np.random.choice([-1,+1]) * np.random.randint(1,n+1)) for i in range(k) ]
 		# Add C to the formula
 		F1.append(C)
+		
 		# Check to see F1 is unsatisfiable
-		if pycosat.solve(F1) == "UNSAT":
-			break
+		
+		# Filter solutions list for satisfiable solutions
+		solutions = [ X for X in solutions if any([ np.sign(l) * np.sign(X[int(abs(l))-1]) == 1 for l in C ]) ]
+
+		# If there are no satisfiable solutions in our buffer, run PycoSAT to look for new solutions
+		if len(solutions) == 0:
+			solutions = list(itertools.islice(pycosat.itersolve(F1,n),buffer_size))
+			# If PycoSAT couldn't find any new solutions, the algorithm is done
+			if solutions == []:
+				break
+			#end if
+		elif len(solutions) < buffer_size:
+			solutions += list(itertools.islice(pycosat.itersolve(F1,n),buffer_size-len(solutions)))
 		#end if
+
 	#end def
 
 	"""
@@ -113,13 +130,15 @@ def generate(n, m, batch_size = 32):
 
 if __name__ == '__main__':
 
-	n = 40
+	n = 5
+	m = 50
 
-	m = []
-	for i in range(1000):
-		F1, F2 = SR(n)
-		m.append(len(F1))
+	generator = generate(n,m,batch_size=32)
+
+	last_time = time.time()
+	for batch in generator:
+		print("Created batch in {} seconds".format(time.time()-last_time))
+		last_time = time.time()
 	#end for
 
-	print(np.mean(m))
 #end if
