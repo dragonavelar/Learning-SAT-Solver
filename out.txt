@@ -1,0 +1,238 @@
+Parsing Inputs...
+generating trace file.
+
+******************************************************
+Timeline file is written to ./profiling/graph.timeline_0.
+Open a Chrome browser, enter URL chrome://tracing and load the timeline file.
+******************************************************
+
+Run pprof -png --nodecount=100 --sample_index=1 <./profiling/code.pprof>
+generating trace file.
+
+******************************************************
+Timeline file is written to ./profiling/graph.timeline_0.
+Open a Chrome browser, enter URL chrome://tracing and load the timeline file.
+******************************************************
+generating trace file.
+
+******************************************************
+Timeline file is written to ./profiling/graph.timeline_1.
+Open a Chrome browser, enter URL chrome://tracing and load the timeline file.
+******************************************************
+generating trace file.
+
+******************************************************
+Timeline file is written to ./profiling/graph.timeline_2.
+Open a Chrome browser, enter URL chrome://tracing and load the timeline file.
+******************************************************
+generating trace file.
+
+******************************************************
+Timeline file is written to ./profiling/graph.timeline_3.
+Open a Chrome browser, enter URL chrome://tracing and load the timeline file.
+******************************************************
+generating trace file.
+
+******************************************************
+Timeline file is written to ./profiling/graph.timeline_4.
+Open a Chrome browser, enter URL chrome://tracing and load the timeline file.
+******************************************************
+generating trace file.
+
+******************************************************
+Timeline file is written to ./profiling/graph.timeline_5.
+Open a Chrome browser, enter URL chrome://tracing and load the timeline file.
+******************************************************
+
+Run pprof -png --nodecount=100 --sample_index=1 <./profiling/code.pprof>
+generating trace file.
+
+******************************************************
+Timeline file is written to ./profiling/graph.timeline_0.
+Open a Chrome browser, enter URL chrome://tracing and load the timeline file.
+******************************************************
+generating trace file.
+
+******************************************************
+Timeline file is written to ./profiling/graph.timeline_1.
+Open a Chrome browser, enter URL chrome://tracing and load the timeline file.
+******************************************************
+generating trace file.
+
+******************************************************
+Timeline file is written to ./profiling/graph.timeline_2.
+Open a Chrome browser, enter URL chrome://tracing and load the timeline file.
+******************************************************
+generating trace file.
+
+******************************************************
+Timeline file is written to ./profiling/graph.timeline_3.
+Open a Chrome browser, enter URL chrome://tracing and load the timeline file.
+******************************************************
+generating trace file.
+
+******************************************************
+Timeline file is written to ./profiling/graph.timeline_4.
+Open a Chrome browser, enter URL chrome://tracing and load the timeline file.
+******************************************************
+generating trace file.
+
+******************************************************
+Timeline file is written to ./profiling/graph.timeline_5.
+Open a Chrome browser, enter URL chrome://tracing and load the timeline file.
+******************************************************
+generating trace file.
+
+******************************************************
+Timeline file is written to ./profiling/graph.timeline_6.
+Open a Chrome browser, enter URL chrome://tracing and load the timeline file.
+******************************************************
+generating trace file.
+
+******************************************************
+Timeline file is written to ./profiling/graph.timeline_7.
+Open a Chrome browser, enter URL chrome://tracing and load the timeline file.
+******************************************************
+generating trace file.
+
+******************************************************
+Timeline file is written to ./profiling/graph.timeline_8.
+Open a Chrome browser, enter URL chrome://tracing and load the timeline file.
+******************************************************
+generating trace file.
+
+******************************************************
+Timeline file is written to ./profiling/graph.timeline_9.
+Open a Chrome browser, enter URL chrome://tracing and load the timeline file.
+******************************************************
+generating trace file.
+
+******************************************************
+Timeline file is written to ./profiling/graph.timeline_10.
+Open a Chrome browser, enter URL chrome://tracing and load the timeline file.
+******************************************************
+
+Run pprof -png --nodecount=100 --sample_index=1 <./profiling/code.pprof>
+generating trace file.
+
+******************************************************
+Timeline file is written to ./profiling/graph.timeline_0.
+Open a Chrome browser, enter URL chrome://tracing and load the timeline file.
+******************************************************
+generating trace file.
+
+******************************************************
+Timeline file is written to ./profiling/graph.timeline_1.
+Open a Chrome browser, enter URL chrome://tracing and load the timeline file.
+******************************************************
+generating trace file.
+
+******************************************************
+Timeline file is written to ./profiling/graph.timeline_2.
+Open a Chrome browser, enter URL chrome://tracing and load the timeline file.
+******************************************************
+generating trace file.
+
+******************************************************
+Timeline file is written to ./profiling/graph.timeline_3.
+Open a Chrome browser, enter URL chrome://tracing and load the timeline file.
+******************************************************
+generating trace file.
+
+******************************************************
+Timeline file is written to ./profiling/graph.timeline_4.
+Open a Chrome browser, enter URL chrome://tracing and load the timeline file.
+******************************************************
+generating trace file.
+
+******************************************************
+Timeline file is written to ./profiling/graph.timeline_5.
+Open a Chrome browser, enter URL chrome://tracing and load the timeline file.
+******************************************************
+generating trace file.
+
+******************************************************
+Timeline file is written to ./profiling/graph.timeline_6.
+Open a Chrome browser, enter URL chrome://tracing and load the timeline file.
+******************************************************
+generating trace file.
+
+******************************************************
+Timeline file is written to ./profiling/graph.timeline_7.
+Open a Chrome browser, enter URL chrome://tracing and load the timeline file.
+******************************************************
+generating trace file.
+
+******************************************************
+Timeline file is written to ./profiling/graph.timeline_8.
+Open a Chrome browser, enter URL chrome://tracing and load the timeline file.
+******************************************************
+generating trace file.
+
+******************************************************
+Timeline file is written to ./profiling/graph.timeline_9.
+Open a Chrome browser, enter URL chrome://tracing and load the timeline file.
+******************************************************
+generating trace file.
+
+******************************************************
+Timeline file is written to ./profiling/graph.timeline_10.
+Open a Chrome browser, enter URL chrome://tracing and load the timeline file.
+******************************************************
+generating trace file.
+
+******************************************************
+Timeline file is written to ./profiling/graph.timeline_11.
+Open a Chrome browser, enter URL chrome://tracing and load the timeline file.
+******************************************************
+generating trace file.
+
+******************************************************
+Timeline file is written to ./profiling/graph.timeline_12.
+Open a Chrome browser, enter URL chrome://tracing and load the timeline file.
+******************************************************
+generating trace file.
+
+******************************************************
+Timeline file is written to ./profiling/graph.timeline_13.
+Open a Chrome browser, enter URL chrome://tracing and load the timeline file.
+******************************************************
+generating trace file.
+
+******************************************************
+Timeline file is written to ./profiling/graph.timeline_14.
+Open a Chrome browser, enter URL chrome://tracing and load the timeline file.
+******************************************************
+generating trace file.
+
+******************************************************
+Timeline file is written to ./profiling/graph.timeline_15.
+Open a Chrome browser, enter URL chrome://tracing and load the timeline file.
+******************************************************
+Building model ...
+Creating batch generator ...
+Setting up profiling ...
+Initializing global variables ... 
+Running for 20 epochs
+20180309213149	1492712 kB	Epoch 0 Loss: 1.0029077529907227
+20180309213151	1492816 kB	Epoch 1 Loss: 1.0037635564804077
+20180309213153	1499504 kB	Epoch 2 Loss: 1.0053551197052002
+20180309213155	1500116 kB	Epoch 3 Loss: 1.0093965530395508
+20180309213158	1488408 kB	Epoch 4 Loss: 1.005117654800415
+20180309213200	1553112 kB	Epoch 5 Loss: 1.000988483428955
+20180309213202	1553208 kB	Epoch 6 Loss: 1.0013878345489502
+20180309213204	1560028 kB	Epoch 7 Loss: 0.9999882578849792
+20180309213206	1560912 kB	Epoch 8 Loss: 1.000106692314148
+20180309213210	1545772 kB	Epoch 9 Loss: 1.0003654956817627
+20180309213212	1582388 kB	Epoch 10 Loss: 1.0004994869232178
+20180309213214	1582244 kB	Epoch 11 Loss: 0.9991514682769775
+20180309213216	1589132 kB	Epoch 12 Loss: 1.0010607242584229
+20180309213218	1588916 kB	Epoch 13 Loss: 1.000051736831665
+20180309213223	1574540 kB	Epoch 14 Loss: 1.0002546310424805
+20180309213225	1606416 kB	Epoch 15 Loss: 1.000335454940796
+20180309213227	1606444 kB	Epoch 16 Loss: 1.000732421875
+20180309213229	1613036 kB	Epoch 17 Loss: 1.0003833770751953
+20180309213232	1686424 kB	Epoch 18 Loss: 1.0005161762237549
+20180309213232	1686472 kB	Epoch 19 Loss: 1.000413417816162
+
+Run pprof -png --nodecount=100 --sample_index=1 <./profiling/code.pprof>
