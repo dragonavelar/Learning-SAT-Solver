@@ -1,5 +1,6 @@
 # Logging and profiling files
-profiling/
+logging/
+supervisor/
 *.out
 *.err
 

@@ -107,21 +107,21 @@ def build_model(
 	"""
 	# Sizes for the MLPs
 	# Input matrix for each of the batch's SAT problem and its transposed
-	M = tf.placeholder( tf.float32, [ batch_size, 2*n, m ] )
-	Mt = tf.transpose( M, [0,2,1] )
+	M = tf.placeholder( tf.float32, [ batch_size, 2*n, m ], name = "M" )
+	Mt = tf.transpose( M, [0,2,1], name = "Mt" )
 	# Whether that batch's SAT problem is SAT or UNSAT
-	instance_SAT = tf.placeholder( tf.float32, [ batch_size, ] )
+	instance_SAT = tf.placeholder( tf.float32, [ batch_size, ], name = "instance_SAT" )
 	# Embedding variables
-	L0 = tf.Variable( tf.random_uniform( [d], dtype = tf.float32 ), dtype = tf.float32 )
-	C0 = tf.Variable( tf.random_uniform( [d], dtype = tf.float32 ), dtype = tf.float32 )
+	L0 = tf.Variable( tf.random_uniform( [d], dtype = tf.float32 ), dtype = tf.float32, name = "L0" )
+	C0 = tf.Variable( tf.random_uniform( [d], dtype = tf.float32 ), dtype = tf.float32, name = "C0" )
 	# LSTM cells
 	Lu_cell = tf.contrib.rnn.LayerNormBasicLSTMCell(
 		2*n*d,
-		reuse = tf.AUTO_REUSE # Reuse the same layer weigths for other time_steps
+		reuse = tf.AUTO_REUSE
 	)
 	Cu_cell = tf.contrib.rnn.LayerNormBasicLSTMCell(
 		m*d,
-		reuse = tf.AUTO_REUSE # Reuse the same layer weigths for other time_steps
+		reuse = tf.AUTO_REUSE
 	)
 	# Starting states for the LSTM cells
 	Lu_cell_init_hidden_state = Lu_cell.zero_state( batch_size, dtype = tf.float32 )
@@ -129,9 +129,25 @@ def build_model(
  
 
 	# Building the unrolled graph
-	current_L = tf.reshape(tf.tile(L0, (batch_size*2*n,)), (batch_size,2*n,d))
+	current_L = tf.reshape(
+		tf.tile(
+			L0,
+			(batch_size*2*n,),
+			name = "L0_tiled_to_fit"
+		),
+		(batch_size,2*n,d),
+		name = "L"
+	)
 	current_Lh = Lu_cell_init_hidden_state
-	current_C = tf.reshape(tf.tile(C0, (batch_size*m,)), (batch_size,m,d))
+	current_C = tf.reshape(
+		tf.tile(
+			C0,
+			(batch_size*m,),
+			name = "C0_tiled_to_fit"
+		),
+		(batch_size,m,d),
+		name = "C"
+	)
 	current_Ch = Cu_cell_init_hidden_state
 	L = []
 	Lh = []
@@ -143,7 +159,11 @@ def build_model(
 	# For each time step
 	for t in range( time_steps ):
 		# Get the values for Lmsg, Cmsg and Lvote
-		L_flat = tf.reshape( current_L, [ batch_size, -1 ] )
+		L_flat = tf.reshape(
+			current_L,
+			[ batch_size, -1 ],
+			name = "L_flat"
+		)
 		Lmsg_flat = mlp(
 			L_flat,
 			Lmsg_sizes,
@@ -154,9 +174,14 @@ def build_model(
 		)
 		Lmsg = tf.reshape(
 			 Lmsg_flat,
-			(batch_size, 2*n, d)
+			(batch_size, 2*n, d),
+			name = "Lmsg_reshaped"
 		)
-		C_flat = tf.reshape( current_C, [ batch_size, -1 ] )
+		C_flat = tf.reshape(
+			current_C,
+			[ batch_size, -1 ],
+			name = "C_flat"
+		)
 		Cmsg_flat = mlp(
 			C_flat,
 			Cmsg_sizes,
@@ -167,7 +192,8 @@ def build_model(
 		)
 		Cmsg = tf.reshape(
 			Cmsg_flat,
-			(batch_size, m, d)
+			(batch_size, m, d),
+			name = "Cmsg_reshaped"
 		)
 		if not vote_only_on_end or t + 1 >= time_steps:
 			Lvote = mlp(
@@ -178,13 +204,30 @@ def build_model(
 				name = "Lvote",
 				reuse = tf.AUTO_REUSE # Reuse the same layer weigths for other time_steps
 			)
+		else:
+			Lvote = None
 		#end if
 		# Get the input values for Lu and Cu
 
-		Cin = tf.matmul( Mt, Lmsg )
-		Cin_flat = tf.reshape(Cin, (batch_size, m*d))
-		Lin = tf.concat( [ current_L, tf.matmul( M, Cmsg ) ], axis = 1 )
-		Lin_flat = tf.reshape( Lin, (batch_size, 2*(2*n)*d) )
+		Cin = tf.matmul( Mt, Lmsg, name = "Cin" )
+		Cin_flat = tf.reshape( Cin, (batch_size, m*d), name = "Cin_flat" )
+		Lin = tf.concat(
+			[
+				current_L,
+				tf.matmul(
+					M,
+					Cmsg,
+					name = "M_x_Cmsg"
+				)
+			],
+			axis = 1,
+			name = "Lin"
+		)
+		Lin_flat = tf.reshape(
+			Lin,
+			(batch_size, 2*(2*n)*d),
+			name = "Lin_flat"
+		)
 
 		# Run the inputs and last states through the cells
 		with tf.variable_scope( "Cu_cell", reuse = tf.AUTO_REUSE ): # Theoretically already being reused
@@ -197,17 +240,21 @@ def build_model(
 				Lin_flat,
 				current_Lh
 			)
-		new_L = tf.reshape( new_L_flat, [batch_size,2*n,d] )
-		new_C = tf.reshape( new_C_flat, [batch_size,m,d] )
+		new_L = tf.reshape(
+			new_L_flat,
+			[batch_size,2*n,d],
+			name = "L"
+		)
+		new_C = tf.reshape(
+			new_C_flat,
+			[batch_size,m,d],
+			name = "C"
+		)
 		# Append the values into a list, for bookkeeping
 		L.append( new_L )
 		Lh.append( new_Lh )
 		Lm.append( Lmsg )
-		if not vote_only_on_end or t + 1 >= time_steps:
-			Lv.append( Lvote )
-		else:
-			Lv.append( None )
-		#end if
+		Lv.append( Lvote )
 		C.append( new_C )
 		Ch.append( new_Ch )
 		Cm.append( Cmsg )
@@ -218,9 +265,13 @@ def build_model(
 		current_Ch = new_Ch
 	#end for
 	# Predict whether the instance is SAT for every instance in the batch
-	predicted_SAT = tf.reduce_mean( Lv[-1], axis = 1 )
-	loss = tf.losses.mean_squared_error( instance_SAT, predicted_SAT )
-	train_step = tf.train.AdagradOptimizer( 0.1 ).minimize( loss )
+	predicted_SAT = tf.reduce_mean(
+		Lv[-1],
+		axis = 1,
+		name = "predicted_SAT"
+	)
+	loss = tf.losses.mean_squared_error( instance_SAT, predicted_SAT )	
+	train_step = tf.train.AdamOptimizer( name = "Adam" ).minimize( loss )
 	var_dict = {
 		"L": L,
 		"Lh": Lh,
