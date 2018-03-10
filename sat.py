@@ -53,32 +53,55 @@ if __name__ == "__main__":
 	if PROFILING:
 		print( "Setting up profiling ..." )
 		builder = tf.profiler.ProfileOptionBuilder
-		opts_op = builder( builder.time_and_memory() )
-		opts_op.with_file_output( "./profiling/op.out" )	
-		opts_op = opts_op.build()
+		opts_op_file = builder( builder.time_and_memory() )
+		opts_op_file.with_file_output( "./profiling/op.out" )
+		opts_op_file = opts_op_file.build()
+
+		opts_op_timeline = builder( builder.time_and_memory() )
+		opts_op_timeline.with_timeline_output( "./profiling/op.timeline" )
+		opts_op_timeline = opts_op_timeline.build()
 		
-		opts_scope = builder( builder.trainable_variables_parameter() )
-		opts_scope.with_file_output( "./profiling/scope.out" )
-		opts_scope = opts_scope.build()
+		opts_scope_file = builder( builder.trainable_variables_parameter() )
+		opts_scope_file.with_file_output( "./profiling/scope.out" )
+		opts_scope_file = opts_scope_file.build()
 		
-		opts_graph = builder()
-		opts_graph.with_timeline_output( "./profiling/graph.timeline" )
-		opts_graph = opts_graph.build()
+		opts_scope_timeline = builder( builder.trainable_variables_parameter() )
+		opts_scope_timeline.with_timeline_output( "./profiling/scope.timeline" )
+		opts_scope_timeline = opts_scope_timeline.build()
 		
-		opts_code = builder()
-		opts_code.with_timeline_output( "./profiling/code.timeline" )
-		opts_code.with_pprof_output( "./profiling/code.pprof" )
-		opts_code = opts_code.build()
+		opts_graph_file = builder()
+		opts_graph_file.with_file_output( "./profiling/graph.out" )
+		opts_graph_file = opts_graph_file.build()
 		
+		opts_graph_timeline = builder()
+		opts_graph_timeline.with_timeline_output( "./profiling/graph.timeline" )
+		opts_graph_timeline = opts_graph_timeline.build()
+		
+		opts_code_file = builder()
+		opts_code_file.with_file_output( "./profiling/code.out" )
+		opts_code_file = opts_code_file.build()
+		
+		opts_code_timeline = builder()
+		opts_code_timeline.with_timeline_output( "./profiling/code.timeline" )
+		opts_code_timeline = opts_code_timeline.build()
+		
+		opts_code_pprof = builder()
+		opts_code_pprof.with_pprof_output( "./profiling/code.pprof" )
+		opts_code_pprof = opts_code_pprof.build()
+				
 		with tf.contrib.tfprof.ProfileContext('./profiling/profilecontext',
 			trace_steps = range( 0, epochs ),
 			dump_steps = [ epochs - 1 ]
 		) as pctx:
-			pctx.add_auto_profiling( 'op', opts_op, range( 0, epochs, PROFILING ) )
-			pctx.add_auto_profiling( 'scope', opts_scope, range( 0, epochs, PROFILING ) )
-			pctx.add_auto_profiling( 'graph', opts_graph, range( 0, epochs, PROFILING ) )
-			pctx.add_auto_profiling( 'code', opts_code, range( 0, epochs, PROFILING ) )
-			
+			pctx.add_auto_profiling( 'op', opts_op_file, range( 0, epochs, PROFILING ) )
+			pctx.add_auto_profiling( 'op', opts_op_timeline, range( 0, epochs, PROFILING ) )
+			pctx.add_auto_profiling( 'scope', opts_scope_file, range( 0, epochs, PROFILING ) )
+			pctx.add_auto_profiling( 'scope', opts_scope_timeline, range( 0, epochs, PROFILING ) )
+			pctx.add_auto_profiling( 'graph', opts_graph_file, range( 0, epochs, PROFILING ) )
+			pctx.add_auto_profiling( 'graph', opts_graph_timeline, range( 0, epochs, PROFILING ) )
+			pctx.add_auto_profiling( 'code', opts_code_file, range( 0, epochs, PROFILING ) )
+			pctx.add_auto_profiling( 'code', opts_code_timeline, range( 0, epochs, PROFILING ) )
+			pctx.add_auto_profiling( 'code', opts_code_pprof, range( 0, epochs, PROFILING ) )
 			# Allow GPU memory growth
 			config = tf.ConfigProto()
 			config.gpu_options.per_process_gpu_memory_fraction = 0.9
