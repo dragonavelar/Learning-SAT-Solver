@@ -20,12 +20,12 @@ def memory_usage():
 #end memory_usage
 
 if __name__ == "__main__":
-	time_steps = 12
-	batch_size = 32
-	epochs = 20
-	n = 5
-	m = 50
-	d = 32
+	time_steps = 30
+	batch_size = 8 #64
+	epochs = 100000
+	n = 10 #40
+	m = 100 #400
+	d = 64
 	Lmsg_sizes 	= [2*n*d,	2*n*d,	2*n*d]
 	Cmsg_sizes 	= [m*d, 	m*d,	m*d]
 	Lvote_sizes = [32,		32,		32]
@@ -49,9 +49,8 @@ if __name__ == "__main__":
 	generator = generator.generate(n, m, batch_size=batch_size)
 
 
-	# Allow GPU memory growth
-	config = tf.ConfigProto()
-	config.gpu_options.per_process_gpu_memory_fraction = 0.9
+	# Disallow GPU use
+	config = tf.ConfigProto( device_count = {"GPU":0})
 	with tf.Session(config=config) as sess:
 		# Initialize global variables
 		print("Initializing global variables ... ")
@@ -60,6 +59,7 @@ if __name__ == "__main__":
 		print("Running for {} epochs".format(epochs))
 		epoch = 1
 		for epoch, batch in zip( range(epochs), generator ):
+			print( "Running on a new batch ..." )
 			# Get features, labels
 			features, labels = batch
 			# Run session
