@@ -3,7 +3,7 @@ os.environ['TF_CPP_MIN_LOG_LEVEL']='2'
 import tensorflow as tf
 import numpy as np
 import matplotlib.pyplot as plt
-from model import build_model
+from model import build_model, build_model_while
 import itertools
 
 import generator
@@ -20,20 +20,21 @@ def memory_usage():
 #end memory_usage
 
 if __name__ == "__main__":
-	time_steps = 8
-	batch_size = 8
-	epochs = 100
-	n = 8
-	m = 8
-	d = 8
+	time_steps = 12
+	batch_size = 32
+	epochs = 20
+	n = 5
+	m = 50
+	d = 32
 	Lmsg_sizes 	= [2*n*d,	2*n*d,	2*n*d]
 	Cmsg_sizes 	= [m*d, 	m*d,	m*d]
 	Lvote_sizes = [32,		32,		32]
 	
 	# Build model
 	print("Building model ...")
-	M, pred_SAT, label_SAT, loss, train_step, var_dict = build_model( 
-		time_steps = time_steps,
+	M, ts, pred_SAT, label_SAT, loss, train_step, var_dict = build_model_while( 
+	#M, pred_SAT, label_SAT, loss, train_step, var_dict = build_model( 
+		#time_steps = time_steps,
 		batch_size = batch_size,
 		d = d,
 		n = n,
@@ -41,7 +42,7 @@ if __name__ == "__main__":
 		Lmsg_sizes = Lmsg_sizes,
 		Lvote_sizes = Lvote_sizes,
 		Cmsg_sizes = Cmsg_sizes
-)
+	)
 
 	# Create batch generator
 	print("Creating batch generator ...")
@@ -62,7 +63,14 @@ if __name__ == "__main__":
 			# Get features, labels
 			features, labels = batch
 			# Run session
-			_, _, loss_val = sess.run( [train_step, pred_SAT, loss], feed_dict={M: features, label_SAT: labels} )
+			_, _, loss_val = sess.run(
+				[train_step, pred_SAT, loss],
+				feed_dict = {
+					M: features,
+					label_SAT: labels,
+					ts: time_steps
+				}
+			)
 			# Print train step and loss
 			print(
 				"{timestamp}\t{memory}\tEpoch {epoch} Loss: {loss}".format(
