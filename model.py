@@ -532,9 +532,10 @@ def build_model_sparse_while_no_batch(
 	batch_size = 1
 	# Input matrix for each of the batch's SAT problem and its transposed
 	time_steps = tf.placeholder( tf.int32, shape = (), name = "time_steps" )
-	Ms = tf.sparse_placeholder( tf.float32, shape = [ None, m ], name = "M" )
-	M = tf.sparse_tensor_to_dense( tf.sparse_reshape( Ms, [ 1, 2*n, m ] ) )
-	Mt = tf.transpose( M, [0,2,1], name = "Mt" )
+	M = tf.sparse_placeholder( tf.float32, shape = [ None, m ], name = "M" )
+	Mt = tf.sparse_transpose( M, [1,0], name = "Mt" )
+	#M = tf.sparse_reshape( Ms, [ 1, 2*n, m ] )
+	#Mt = tf.sparse_transpose( M, [0,2,1], name = "Mt" )
 	# Whether that batch's SAT problem is SAT or UNSAT
 	instance_SAT = tf.placeholder( tf.float32, [ batch_size, ], name = "instance_SAT" )
 	# Embedding variables
@@ -604,7 +605,8 @@ def build_model_sparse_while_no_batch(
 		)
 		Lmsg = tf.reshape(
 			 Lmsg_flat,
-			(batch_size, 2*n, d),
+			#(batch_size, 2*n, d),
+			( 2*n, d ),
 			name = "Lmsg_reshaped"
 		)
 		C_flat = tf.reshape(
@@ -622,7 +624,8 @@ def build_model_sparse_while_no_batch(
 		)
 		Cmsg = tf.reshape(
 			Cmsg_flat,
-			(batch_size, m, d),
+			#(batch_size, m, d),
+			( m, d ),
 			name = "Cmsg_reshaped"
 		)
 		Lvote = mlp(
@@ -635,15 +638,18 @@ def build_model_sparse_while_no_batch(
 		)
 
 		# Get the input values for Lu and Cu
-		Cin = tf.matmul( Mt, Lmsg, name = "Cin" )
+		Cin = tf.expand_dims( tf.sparse_tensor_dense_matmul( Mt, Lmsg, name = "Cin" ), 0 )
 		Cin_flat = tf.reshape( Cin, (batch_size, m*d), name = "Cin_flat" )
 		Lin = tf.concat(
 			[
 				current_L,
-				tf.matmul(
-					M,
-					Cmsg,
-					name = "M_x_Cmsg"
+				tf.expand_dims(
+					tf.sparse_tensor_dense_matmul(
+						M,
+						Cmsg,
+						name = "M_x_Cmsg"
+					),
+					0
 				)
 			],
 			axis = 1,
@@ -704,5 +710,5 @@ def build_model_sparse_while_no_batch(
 		"Ch": last_Ch,
 		"Trainable vars": tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES)
 	}
-	return Ms, time_steps, predicted_SAT, instance_SAT, loss, train_step, var_dict
+	return M, time_steps, predicted_SAT, instance_SAT, loss, train_step, var_dict
 #end build_model_while
