@@ -532,7 +532,8 @@ def build_model_sparse_while_no_batch(
 	batch_size = 1
 	# Input matrix for each of the batch's SAT problem and its transposed
 	time_steps = tf.placeholder( tf.int32, shape = (), name = "time_steps" )
-	M = tf.sparse_placeholder( tf.float32, [ 2*n, m ], name = "M" )
+	Ms = tf.sparse_placeholder( tf.float32, shape = [ None, m ], name = "M" )
+	M = tf.sparse_tensor_to_dense( tf.sparse_reshape( Ms, [ 1, 2*n, m ] ) )
 	Mt = tf.transpose( M, [0,2,1], name = "Mt" )
 	# Whether that batch's SAT problem is SAT or UNSAT
 	instance_SAT = tf.placeholder( tf.float32, [ batch_size, ], name = "instance_SAT" )
@@ -703,5 +704,5 @@ def build_model_sparse_while_no_batch(
 		"Ch": last_Ch,
 		"Trainable vars": tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES)
 	}
-	return M, time_steps, predicted_SAT, instance_SAT, loss, train_step, var_dict
+	return Ms, time_steps, predicted_SAT, instance_SAT, loss, train_step, var_dict
 #end build_model_while
