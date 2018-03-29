@@ -796,7 +796,7 @@ class SAT_solver(object):
 		self.time_steps = tf.placeholder( tf.int32, shape = (), name = "time_steps" )
 		self.M = tf.sparse_placeholder( tf.float32, shape = [ None, None ], name = "M" )
 		self.instance_SAT = tf.placeholder( tf.float32, [ None ], name = "instance_SAT" )
-		self.num_vars_on_instance = tf.placeholder( tf.float32, [ None ], name = "instance_n" )
+		self.num_vars_on_instance = tf.placeholder( tf.int32, [ None ], name = "instance_n" )
 	#end _init_placeholders
 	
 	def _init_parameters(self):
@@ -839,7 +839,7 @@ class SAT_solver(object):
 		# MLP that will decode a literal embedding as a vote for satisfiability
 		self.L_vote_MLP = Mlp(
 			layer_sizes = [ self.embedding_size for _ in range(2) ],
-			output_size = [1],
+			output_size = 1,
 			name = "L_vote",
 			activation = self.L_vote_activation,
 			name_internal_layers = True
@@ -852,6 +852,7 @@ class SAT_solver(object):
 		self.l = tf.shape( self.M )[0]
 		self.n = tf.floordiv( self.l, tf.constant( 2 ) )
 		self.m = tf.shape( self.M )[1]
+		self.p = tf.shape( self.instance_SAT )[0]
 	#end _init_util_vars
 	
 	def _solve(self):
@@ -874,6 +875,15 @@ class SAT_solver(object):
 		# Get the last embeddings
 		self.L_n = L_state.h
 		self.C_n = C_state.h
+		self.L_vote = self.L_vote_MLP( self.L_n )
+		
+		predicted_sat = tf.TensorArray( size = self.p, dtype = tf.float32 )
+		_, _, _, _, _, predicted_sat, _ = tf.while_loop(
+			self._vote_while_cond,
+			self._vote_while_body,
+			[ tf.constant( 0, dtype = tf.int32 ), self.p, tf.constant( 0, dtype = tf.int32 ), self.n, self.num_vars_on_instance, predicted_sat, self.L_vote ]
+		)
+		self.predicted_sat = predicted_sat.stack()
 	#end _solve
 
 	def f(self):
@@ -893,7 +903,7 @@ class SAT_solver(object):
 		L_inverted = tf.concat( [ L_neg, L_pos ], axis = 0 )
 		# Update LSTMs state
 		with tf.variable_scope( "L_cell" ):
-			_, L_state = self.L_cell( inputs = tf.concat( [ M_x_C_msg, L_inverted ], 1 ), state = L_state )
+			_, L_state = self.L_cell( inputs = tf.concat( [ M_x_C_msg, L_inverted ], axis = 1 ), state = L_state )
 		# end L_cell scope
 		with tf.variable_scope( "C_cell" ):
 			_, C_state = self.C_cell( inputs = Mt_x_L_msg, state = C_state )
@@ -906,12 +916,18 @@ class SAT_solver(object):
 		return tf.less( t, t_max )
 	#end _message_while_cond
 	
-	def _vote_while_body(self):
-		return
+	def _vote_while_body(self, i, p, n_acc, n, n_var_list, predicted_sat, L_vote):
+		i_n = n_var_list[i]
+		pos_lits = tf.gather( L_vote, tf.range( n_acc, tf.add( n_acc, i_n ) ) )
+		neg_lits = tf.gather( L_vote, tf.range( tf.add( n, n_acc ), tf.add( n, tf.add( n_acc, i_n ) ) ) )
+		predicted_sat = predicted_sat.write( i, tf.reduce_mean( tf.concat( [pos_lits, neg_lits], axis = 1 ) ) )
+		i = tf.Print( i, [i, p, tf.less( i, p )])
+		n_acc = tf.Print( n_acc, [n_acc])
+		return tf.add( i, tf.constant( 1 ) ), p, tf.add( n_acc, i_n ), n, n_var_list, predicted_sat, L_vote
 	#end _message_while_body
 	
-	def _vote_while_cond(self):
-		return tf.constant( 0, dtype = tf.int32 )#tf.less( i, tf.shape( is_sat_list )[0] )
+	def _vote_while_cond(self, i, p, n_acc, n, n_var_list, predicted_sat, L_vote):
+		return tf.less( i, p )
 	#end _message_while_cond
 
 	def f(self):
@@ -949,7 +965,7 @@ if __name__ == "__main__":
 		sess.run( tf.global_variables_initializer() )
 		print(
 			sess.run(
-				[ solver.L_n, solver.C_n ],
+				[ solver.predicted_sat ],
 				feed_dict = feed_dict
 			)
 		)
