@@ -42,6 +42,21 @@ class CNF(object):
 		return cnf,cnf2
 	#end
 
+	def random_3SAT_critical(n):
+		m = int(4.26 * n)
+
+		cnf = CNF(n,m)
+
+		for i in range(m):
+			clause = [ int(np.random.randint(1,n+1) * np.choice([-1,+1])) for k in range(3) ]
+			cnf.clauses.append( clause )
+		#end
+
+		cnf.sat = pycosat.solve(cnf.clauses) != "UNSAT"
+
+		return cnf
+	#end
+
 	def write_dimacs(self,path):
 		with open(path,"w") as out:
 			out.write("p cnf {} {} {}\n".format(self.n, self.m, int(self.sat) ))
