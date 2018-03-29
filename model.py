@@ -773,8 +773,8 @@ class SAT_solver(object):
 	
 	def __init__(self, embedding_size):
 		self.embedding_size = embedding_size
-		self.L_cell_activation = tf.nn.tanh
-		self.C_cell_activation = tf.nn.tanh
+		self.L_cell_activation = tf.nn.relu
+		self.C_cell_activation = tf.nn.relu
 		self.L_msg_activation = tf.nn.relu
 		self.C_msg_activation = tf.nn.relu
 		self.L_vote_activation = tf.nn.tanh
@@ -877,13 +877,25 @@ class SAT_solver(object):
 		self.C_n = C_state.h
 		self.L_vote = self.L_vote_MLP( self.L_n )
 		
-		predicted_sat = tf.TensorArray( size = self.p, dtype = tf.float32 )
-		_, _, _, _, _, predicted_sat, _ = tf.while_loop(
+		predicted_SAT = tf.TensorArray( size = self.p, dtype = tf.float32 )
+		_, _, _, _, _, predicted_SAT, _ = tf.while_loop(
 			self._vote_while_cond,
 			self._vote_while_body,
-			[ tf.constant( 0, dtype = tf.int32 ), self.p, tf.constant( 0, dtype = tf.int32 ), self.n, self.num_vars_on_instance, predicted_sat, self.L_vote ]
+			[ tf.constant( 0, dtype = tf.int32 ), self.p, tf.constant( 0, dtype = tf.int32 ), self.n, self.num_vars_on_instance, predicted_SAT, self.L_vote ]
 		)
-		self.predicted_sat = predicted_sat.stack()
+		self.predicted_SAT = predicted_SAT.stack()
+		
+		self.loss = tf.losses.mean_squared_error( self.instance_SAT, self.predicted_SAT )
+		self.accuracy = tf.reduce_mean(
+			tf.cast(
+				tf.less_equal(
+					tf.sqrt( tf.squared_difference( self.instance_SAT, self.predicted_SAT ) ),
+					tf.constant( 0.5 )
+				)
+				, tf.float32
+			)
+		)
+		self.train_step = tf.train.AdamOptimizer( name = "Adam" ).minimize( self.loss )
 	#end _solve
 
 	def f(self):
@@ -891,23 +903,31 @@ class SAT_solver(object):
 	#end
 	
 	def _message_while_body(self, t, t_max, L_state, C_state):
-		# Get the messages
+		# Get the literal messages
 		L_msg = self.L_msg_MLP( L_state.h )
-		C_msg = self.C_msg_MLP( C_state.h )
-		# Multiply the masks to the messages
+		# Multiply the masks to the literal messages
 		Mt_x_L_msg = tf.sparse_tensor_dense_matmul( self.Mt, L_msg )
-		M_x_C_msg = tf.sparse_tensor_dense_matmul( self.M, C_msg )
 		L_pos = tf.gather( L_state.h, tf.range( tf.constant( 0 ), self.n ) )
 		# Send messages from negated literals to positive ones, and vice-versa
 		L_neg = tf.gather( L_state.h, tf.range( self.n, self.l ) )
 		L_inverted = tf.concat( [ L_neg, L_pos ], axis = 0 )
-		# Update LSTMs state
-		with tf.variable_scope( "L_cell" ):
-			_, L_state = self.L_cell( inputs = tf.concat( [ M_x_C_msg, L_inverted ], axis = 1 ), state = L_state )
-		# end L_cell scope
+		# Update clauses LSTM state
 		with tf.variable_scope( "C_cell" ):
 			_, C_state = self.C_cell( inputs = Mt_x_L_msg, state = C_state )
 		# end C_cell scope
+		
+		# Get the clause messages
+		C_msg = self.C_msg_MLP( C_state.h )
+		# Multiply the masks to the clause messages
+		M_x_C_msg = tf.sparse_tensor_dense_matmul( self.M, C_msg )
+		# Send messages from negated literals to positive ones, and vice-versa
+		L_pos = tf.gather( L_state.h, tf.range( tf.constant( 0 ), self.n ) )
+		L_neg = tf.gather( L_state.h, tf.range( self.n, self.l ) )
+		L_inverted = tf.concat( [ L_neg, L_pos ], axis = 0 )
+		# Update literal LSTM state
+		with tf.variable_scope( "L_cell" ):
+			_, L_state = self.L_cell( inputs = tf.concat( [ M_x_C_msg, L_inverted ], axis = 1 ), state = L_state )
+		# end L_cell scope
 		
 		return tf.add( t, tf.constant( 1 ) ), t_max, L_state, C_state
 	#end _message_while_body
@@ -916,14 +936,17 @@ class SAT_solver(object):
 		return tf.less( t, t_max )
 	#end _message_while_cond
 	
-	def _vote_while_body(self, i, p, n_acc, n, n_var_list, predicted_sat, L_vote):
+	def _vote_while_body(self, i, p, n_acc, n, n_var_list, predicted_SAT, L_vote):
+		# Helper for the amound of variables in this problem
 		i_n = n_var_list[i]
-		i = tf.Print( i, [i, p, tf.less( i, p )], "i")
-		n_acc = tf.Print( n_acc, [n_acc, n, i_n], "n")
+		# Gather the positive and negative literals for that problem
 		pos_lits = tf.gather( L_vote, tf.range( n_acc, tf.add( n_acc, i_n ) ) )
 		neg_lits = tf.gather( L_vote, tf.range( tf.add( n, n_acc ), tf.add( n, tf.add( n_acc, i_n ) ) ) )
-		predicted_sat = predicted_sat.write( i, tf.reduce_mean( tf.concat( [pos_lits, neg_lits], axis = 1 ) ) )
-		return tf.add( i, tf.constant( 1 ) ), p, tf.add( n_acc, i_n ), n, n_var_list, predicted_sat, L_vote
+		# Concatenate positive and negative literals and average their vote values
+		problem_predicted_SAT = tf.reduce_mean( tf.concat( [pos_lits, neg_lits], axis = 1 ) )
+		# Update TensorArray
+		predicted_SAT = predicted_SAT.write( i, problem_predicted_SAT )
+		return tf.add( i, tf.constant( 1 ) ), p, tf.add( n_acc, i_n ), n, n_var_list, predicted_SAT, L_vote
 	#end _message_while_body
 	
 	def _vote_while_cond(self, i, p, n_acc, n, n_var_list, predicted_sat, L_vote):
@@ -939,6 +962,9 @@ class SAT_solver(object):
 
 if __name__ == "__main__":
 	solver = SAT_solver( 10 )
+	n = 6
+	m = 20
+	epochs = 10000	
 	feed_dict = {
 		solver.time_steps: 10,
 		solver.M: (
@@ -956,18 +982,21 @@ if __name__ == "__main__":
 				],
 				dtype = np.float32
 			),
-			np.array( [9,20], dtype = np.int32 )
+			np.array( [2*n,m], dtype = np.int32 )
 		),
 		solver.instance_SAT: [1,-1,1],
-		solver.num_vars_on_instance: [2,3,4] 
+		solver.num_vars_on_instance: [1,2,3]
 	}
 	with tf.Session() as sess:
 		sess.run( tf.global_variables_initializer() )
-		print(
-			sess.run(
-				[ solver.predicted_sat ],
-				feed_dict = feed_dict
+		for i in range(epochs):
+			print(
+				i,
+				sess.run(
+					[ solver.predicted_SAT, solver.loss, solver.accuracy, solver.train_step ],
+					feed_dict = feed_dict
+				)
 			)
-		)
+		#end for
 	#end session
 #end main
