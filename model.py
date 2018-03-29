@@ -918,11 +918,11 @@ class SAT_solver(object):
 	
 	def _vote_while_body(self, i, p, n_acc, n, n_var_list, predicted_sat, L_vote):
 		i_n = n_var_list[i]
+		i = tf.Print( i, [i, p, tf.less( i, p )], "i")
+		n_acc = tf.Print( n_acc, [n_acc, n, i_n], "n")
 		pos_lits = tf.gather( L_vote, tf.range( n_acc, tf.add( n_acc, i_n ) ) )
 		neg_lits = tf.gather( L_vote, tf.range( tf.add( n, n_acc ), tf.add( n, tf.add( n_acc, i_n ) ) ) )
 		predicted_sat = predicted_sat.write( i, tf.reduce_mean( tf.concat( [pos_lits, neg_lits], axis = 1 ) ) )
-		i = tf.Print( i, [i, p, tf.less( i, p )])
-		n_acc = tf.Print( n_acc, [n_acc])
 		return tf.add( i, tf.constant( 1 ) ), p, tf.add( n_acc, i_n ), n, n_var_list, predicted_sat, L_vote
 	#end _message_while_body
 	
