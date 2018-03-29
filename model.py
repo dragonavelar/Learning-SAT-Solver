@@ -1,4 +1,5 @@
 import tensorflow as tf
+import numpy as np
 
 def mlp(
 	inputs,
@@ -49,6 +50,61 @@ def mlp(
 	return tf.identity( layers[-1], name = name )
 #end mlp
 
+class Mlp(object):
+	def __init__(
+		self,
+		layer_sizes,
+		output_size = None,
+		activation = None,
+		use_bias = True,
+		kernel_initializer = None,
+		bias_initializer = tf.zeros_initializer(),
+		kernel_regularizer = None,
+		bias_regularizer = None,
+		activity_regularizer = None,
+		kernel_constraint = None,
+		bias_constraint = None,
+		trainable = True,
+		name = None,
+		name_internal_layers = True
+	):
+		"""Stacks len(layer_sizes) dense layers on top of each other, with an additional layer with output_size neurons, if specified."""
+		self.layers = []
+		internal_name = None
+		if output_size is not None:
+			layer_sizes = layer_sizes + [output_size]
+		#end if
+		for i, size in enumerate( layer_sizes ):
+			if name_internal_layers:
+				internal_name = name + "_MLP_layer_{}".format( i + 1 )
+			#end if
+			new_layer = tf.layers.Dense(
+				size,
+				activation = activation,
+				use_bias = use_bias,
+				kernel_initializer = kernel_initializer,
+				bias_initializer = bias_initializer,
+				kernel_regularizer = kernel_regularizer,
+				bias_regularizer = bias_regularizer,
+				activity_regularizer = activity_regularizer,
+				kernel_constraint = kernel_constraint,
+				bias_constraint = bias_constraint,
+				trainable = trainable,
+				name = internal_name
+			)
+			self.layers.append( new_layer )
+		#end for
+	#end __init__
+	
+	def __call__( self, inputs, *args, **kwargs ):
+		outputs = [ inputs ]
+		for layer in self.layers:
+			outputs.append( layer( outputs[-1] ) )
+		#end for
+		return outputs[-1]
+	#end __call__
+#end Mlp
+
 def swap(x):
 	"""Swaps the lines representing the literals with the ones that represent their negated versions in a matrix.
 	
@@ -58,14 +114,14 @@ def swap(x):
 	s = x.shape
 	if len(s) == 2:
 		N, _ = s
-		x0 = x[0:N]
-		x1 = x[N:two*N]
+		x0 = x[0:two*N:2]
+		x1 = x[1:two*N:2]
 		return tf.concat([x1,x0],0)
 	elif len(s) == 3:
 		_, N, _ = s
 		N = int( N )
-		x0 = x[:,0:N]
-		x1 = x[:,N:two*N]
+		x0 = x[:,0:two*N:2]
+		x1 = x[:,1:two*N:2]
 		return tf.concat([x1,x0],1)
 	else:
 		raise ValueError( "Number of dimensions not supported, must be 2 or 3 and is {}".format(len(s)) )
@@ -712,3 +768,190 @@ def build_model_sparse_while_no_batch(
 	}
 	return M, time_steps, predicted_SAT, instance_SAT, loss, train_step, var_dict
 #end build_model_while
+
+class SAT_solver(object):
+	
+	def __init__(self, embedding_size):
+		self.embedding_size = embedding_size
+		self.L_cell_activation = tf.nn.tanh
+		self.C_cell_activation = tf.nn.tanh
+		self.L_msg_activation = tf.nn.relu
+		self.C_msg_activation = tf.nn.relu
+		self.L_vote_activation = tf.nn.tanh
+		with tf.variable_scope( "SAT_solver" ):
+			with tf.variable_scope( "placeholders" ) as scope:
+				self._init_placeholders()
+			#end placeholder scope
+			with tf.variable_scope( "parameters" ) as scope:
+				self._init_parameters()
+			with tf.variable_scope( "utilities" ) as scope:
+				self._init_util_vars()
+			with tf.variable_scope( "solve" ) as scope:
+				self._solve()
+			#end solve scope
+		#end SAT_solver scope
+	#end __init__
+
+	def _init_placeholders(self): 
+		self.time_steps = tf.placeholder( tf.int32, shape = (), name = "time_steps" )
+		self.M = tf.sparse_placeholder( tf.float32, shape = [ None, None ], name = "M" )
+		self.instance_SAT = tf.placeholder( tf.float32, [ None ], name = "instance_SAT" )
+		self.num_vars_on_instance = tf.placeholder( tf.float32, [ None ], name = "instance_n" )
+	#end _init_placeholders
+	
+	def _init_parameters(self):
+		# Iniitial Literal Embedding
+		self.L_init = tf.get_variable(
+			"L_init",
+			[ 1, self.embedding_size ],
+			dtype = tf.float32
+		)
+		# Iniitial Clause Embedding
+		self.C_init = tf.get_variable(
+			"C_init",
+			[ 1, self.embedding_size ],
+			dtype = tf.float32
+		)
+		# LSTM Cell that will produce literal embeddings
+		self.L_cell = tf.contrib.rnn.LayerNormBasicLSTMCell(
+			self.embedding_size,
+			activation = self.L_cell_activation
+		)
+		# LSTM Cell that will produce clause embeddings
+		self.C_cell = tf.contrib.rnn.LayerNormBasicLSTMCell(
+			self.embedding_size,
+			activation = self.C_cell_activation
+		)
+		# MLP that will decode a literal embedding as a message to the clause LSTM
+		self.L_msg_MLP = Mlp(
+			layer_sizes = [ self.embedding_size for _ in range(3) ],
+			name = "L_msg",
+			activation = self.L_msg_activation,
+			name_internal_layers = True
+		)
+		# MLP that will decode a clause embedding as a message to the literal LSTM
+		self.C_msg_MLP = Mlp(
+			layer_sizes = [ self.embedding_size for _ in range(3) ],
+			name = "C_msg",
+			activation = self.C_msg_activation,
+			name_internal_layers = True
+		)
+		# MLP that will decode a literal embedding as a vote for satisfiability
+		self.L_vote_MLP = Mlp(
+			layer_sizes = [ self.embedding_size for _ in range(2) ],
+			output_size = [1],
+			name = "L_vote",
+			activation = self.L_vote_activation,
+			name_internal_layers = True
+		)
+		return
+	#end _init_parameters
+	
+	def _init_util_vars(self):
+		self.Mt = tf.sparse_transpose( self.M, [1,0], name = "Mt" )
+		self.l = tf.shape( self.M )[0]
+		self.n = tf.floordiv( self.l, tf.constant( 2 ) )
+		self.m = tf.shape( self.M )[1]
+	#end _init_util_vars
+	
+	def _solve(self):
+		# TODO dependency scope to eliminate errors
+		pass
+		# Prepare the LSTM tuple for the starting state of the literal LSTM
+		L_cell_h0 = tf.tile( self.L_init , [ self.l, 1 ] )
+		L_cell_c0 = tf.zeros_like( L_cell_h0, dtype = tf.float32 )
+		L_state = tf.contrib.rnn.LSTMStateTuple( h = L_cell_h0, c = L_cell_c0 )
+		# Prepare the LSTM tuple for the starting state of the clause LSTM
+		C_cell_h0 = tf.tile( self.C_init , [ self.m, 1 ] )
+		C_cell_c0 = tf.zeros_like( C_cell_h0, dtype = tf.float32 )
+		C_state = tf.contrib.rnn.LSTMStateTuple( h = C_cell_h0, c = C_cell_c0 )
+		# Run self.time_steps iterations of message-passing
+		_, _, L_state, C_state = tf.while_loop(
+			self._message_while_cond,
+			self._message_while_body,
+			[ tf.constant(0), self.time_steps, L_state, C_state ]
+		)
+		# Get the last embeddings
+		self.L_n = L_state.h
+		self.C_n = C_state.h
+	#end _solve
+
+	def f(self):
+		return
+	#end
+	
+	def _message_while_body(self, t, t_max, L_state, C_state):
+		# Get the messages
+		L_msg = self.L_msg_MLP( L_state.h )
+		C_msg = self.C_msg_MLP( C_state.h )
+		# Multiply the masks to the messages
+		Mt_x_L_msg = tf.sparse_tensor_dense_matmul( self.Mt, L_msg )
+		M_x_C_msg = tf.sparse_tensor_dense_matmul( self.M, C_msg )
+		L_pos = tf.gather( L_state.h, tf.range( tf.constant( 0 ), self.n ) )
+		# Send messages from negated literals to positive ones, and vice-versa
+		L_neg = tf.gather( L_state.h, tf.range( self.n, self.l ) )
+		L_inverted = tf.concat( [ L_neg, L_pos ], axis = 0 )
+		# Update LSTMs state
+		with tf.variable_scope( "L_cell" ):
+			_, L_state = self.L_cell( inputs = tf.concat( [ M_x_C_msg, L_inverted ], 1 ), state = L_state )
+		# end L_cell scope
+		with tf.variable_scope( "C_cell" ):
+			_, C_state = self.C_cell( inputs = Mt_x_L_msg, state = C_state )
+		# end C_cell scope
+		
+		return tf.add( t, tf.constant( 1 ) ), t_max, L_state, C_state
+	#end _message_while_body
+	
+	def _message_while_cond(self, t, t_max, L_state, C_state):
+		return tf.less( t, t_max )
+	#end _message_while_cond
+	
+	def _vote_while_body(self):
+		return
+	#end _message_while_body
+	
+	def _vote_while_cond(self):
+		return tf.constant( 0, dtype = tf.int32 )#tf.less( i, tf.shape( is_sat_list )[0] )
+	#end _message_while_cond
+
+	def f(self):
+		return
+	#end	
+
+#end SAT_solver
+
+
+if __name__ == "__main__":
+	solver = SAT_solver( 10 )
+	feed_dict = {
+		solver.time_steps: 10,
+		solver.M: (
+			np.array(
+				[
+					[0,0],
+					[1,1]
+				],
+				dtype = np.float32
+			),
+			np.array(
+				[
+					1,
+					1
+				],
+				dtype = np.float32
+			),
+			np.array( [9,20], dtype = np.int32 )
+		),
+		solver.instance_SAT: [1,-1,1],
+		solver.num_vars_on_instance: [2,3,4] 
+	}
+	with tf.Session() as sess:
+		sess.run( tf.global_variables_initializer() )
+		print(
+			sess.run(
+				[ solver.L_n, solver.C_n ],
+				feed_dict = feed_dict
+			)
+		)
+	#end session
+#end main
