@@ -1,0 +1,150 @@
+
+import pycosat
+import copy
+import numpy as np
+
+class CNF(object):
+
+	def __init__(self,n,m=0):
+		self.n = n
+		self.m = m
+		self.clauses = []
+		self.sat = None
+	#end
+
+	def SR(n):
+
+		cnf = CNF(n)
+		sat = True
+
+		while sat:
+			# Select a random k ~ Bernouilli(0.3) + Geo(0.4)
+			k = np.random.binomial(1,0.4) + np.random.geometric(0.4)
+			# Create a clause with k randomly selected variables
+			clause = [ int(np.random.randint(1,n+1) * np.random.choice([-1,+1])) for i in range(k) ]
+			# Append clause to cnf
+			cnf.clauses.append(clause)
+			# Check for satisfiability
+			if pycosat.solve(cnf.clauses) == "UNSAT":
+				sat = False
+				# Create an identical copy of cnf
+				cnf2 = copy.deepcopy(cnf)
+				# Flip the polarity of a single literal in the last clause of cnf2
+				cnf2.clauses[-1][np.random.randint(0,len(cnf2.clauses[-1]))] *= -1
+			#end
+		#end
+
+		cnf.sat = False
+		cnf2.sat = True
+
+		cnf.m = cnf2.m = len(cnf.clauses)
+
+		return cnf,cnf2
+	#end
+
+	def write_dimacs(self,path):
+		with open(path,"w") as out:
+			out.write("p cnf {} {} {}\n".format(self.n, self.m, int(self.sat) ))
+
+			for clause in self.clauses:
+				out.write( ' '.join([ str(x) for x in clause]) + ' 0\n')
+			#end
+		#end
+	#end
+
+	def read_dimacs(path):
+		with open(path,"r") as f:
+			n, m, sat = [ int(x) for x in f.readline().split()[2:]]
+			cnf = CNF(n,m)
+			cnf.sat = bool(sat)
+			for i in range(m):
+				cnf.clauses.append( [ int(x) for x in f.readline().split()[:-1]] )
+			#end
+		#end
+		return cnf
+	#end
+#end
+
+class BatchCNF(object):
+
+	def __init__(self,n,m,clauses,sat):
+		"""
+			batch_size: number of instances in this batch
+			n: number of variables for each instance
+			total_n: total number of variables among all instances
+			m: number of clauses for each instance
+			total_m: total number of clauses among all instances
+			clauses: concatenated list of clauses among all instances
+			sat: satisfiability of each instance
+		"""
+		self.batch_size = len(n)
+		self.n = n
+		self.total_n = sum(n)
+		self.m = m
+		self.total_m = sum(m)
+		self.clauses = clauses
+		self.sat = sat
+	#end
+
+	def get_sparse_matrix(self):
+		"""
+			First we need to count the number of non-null cells in our
+			adjacency matrix. This can be computed as the sum of all clause
+			sizes Σ|c| ∀c ∈ F
+		"""
+		n_cells = sum([ len(clause) for clause in self.clauses ])
+
+		# Define sparse_M with shape (n_cells,2)
+		sparse_M = np.zeros((n_cells,2), dtype=np.int)
+
+		cell = 0
+		for (j,clause) in enumerate(self.clauses):
+			for literal in clause:
+				i = int(abs(literal))
+				p = np.sign(literal)
+
+				if p == +1:
+					sparse_M[cell] = [i,j]
+				elif p == -1:
+					sparse_M[cell] = [self.total_n + i, j]
+				#end
+
+				cell += 1
+			#end
+		#end
+		return sparse_M
+	#end
+
+#end
+
+def create_batchCNF(instances):
+	"""
+		Create a BatchCNF object from a list of cnf instances
+	"""
+	n = []
+	m = []
+	clauses = []
+	sat = []
+	offset = 0
+	for cnf in instances:
+		n.append(cnf.n)
+		m.append(cnf.m)
+		clauses.extend( [ [ np.sign(literal) * (abs(literal) + offset) for literal in clause ] for clause in cnf.clauses ] )
+		sat.append(cnf.sat)
+		offset += cnf.n
+	#end
+
+	return BatchCNF(n,m,clauses,sat)
+#end
+
+def create_dataset(n=40, samples=1000, path="instances"):
+	for i in range(samples):
+		cnf1, cnf2 = CNF.SR(n)
+		cnf1.write_dimacs("{}/unsat/{}.cnf".format(path,i))
+		cnf2.write_dimacs("{}/sat/{}.cnf".format(path,i))
+	#end for
+#end
+
+if __name__ == '__main__':
+	create_dataset()
+#end
