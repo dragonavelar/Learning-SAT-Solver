@@ -21,22 +21,22 @@ def memory_usage():
 
 if __name__ == "__main__":
 	time_steps = 30
-	batch_size = 8 #64
-	epochs = 2
+	batch_size = 2 #64
+	epochs = 100
 	n = 5 #40
 	m = 50 #400
-	d = 32
+	d = 64
 	Lmsg_sizes 	= [2*n*d,	2*n*d,	2*n*d]
 	Cmsg_sizes 	= [m*d, 	m*d,	m*d]
 	Lvote_sizes = [32,		32,		32]
 	
 	# Build model
 	print("Building model ...")
-	M, ts, pred_SAT, label_SAT, loss, train_step, var_dict = build_model_sparse_while_no_batch(
-	#M, ts, pred_SAT, label_SAT, loss, train_step, var_dict = build_model_while( 
+	#M, ts, pred_SAT, label_SAT, loss, train_step, var_dict = build_model_sparse_while_no_batch(
+	M, ts, pred_SAT, label_SAT, loss, train_step, var_dict = build_model_while( 
 	#M, pred_SAT, label_SAT, loss, train_step, var_dict = build_model( 
 		#time_steps = time_steps,
-		#batch_size = batch_size,
+		batch_size = batch_size,
 		d = d,
 		n = n,
 		m = m,
@@ -61,7 +61,7 @@ if __name__ == "__main__":
 		for epoch, batch in zip( range(epochs), generator ):
 			# Get features, labels
 			features, labels = batch
-
+			"""
 			indices = []
 			shape = [ 2 * n, m]
 			for l, line in enumerate( features[0] ):
@@ -72,12 +72,16 @@ if __name__ == "__main__":
 				#end for
 			#end l
 			indices = np.array( indices, dtype = np.int32 )
+			del( features )
+			"""
 			# Run session
 			_, _, loss_val = sess.run(
 				[train_step, pred_SAT, loss],
 				feed_dict = {
-					M: tf.SparseTensorValue( indices = indices, values = np.ones( indices.shape[ 0 ] ), dense_shape = shape ),
-					label_SAT: [labels[0]],
+					#M: tf.SparseTensorValue( indices = indices, values = np.ones( indices.shape[ 0 ] ), dense_shape = shape ),
+					#label_SAT: [labels[0]],
+					M: features,
+					label_SAT: labels,
 					ts: time_steps
 				}
 			)
