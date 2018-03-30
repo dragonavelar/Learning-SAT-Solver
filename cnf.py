@@ -120,7 +120,7 @@ class BatchCNF(object):
 		cell = 0
 		for (j,clause) in enumerate(self.clauses):
 			for literal in clause:
-				i = int(abs(literal))
+				i = int(abs(literal) - 1)
 				p = np.sign(literal)
 
 				if p == +1:
@@ -132,7 +132,7 @@ class BatchCNF(object):
 				cell += 1
 			#end
 		#end
-		return sparse_M
+		return sparse_M, np.ones( n_cells, dtype = np.float32 ), (2*self.total_n, self.total_m)
 	#end
 
 #end

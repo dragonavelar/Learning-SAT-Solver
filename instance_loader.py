@@ -37,6 +37,6 @@ if __name__ == '__main__':
 	batches = instance_loader.get_batches(32)
 
 	for batch in batches:
-		print(batch.get_sparse_matrix())
+		print( batch.get_sparse_matrix() )
 	#end
 #end
