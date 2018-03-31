@@ -44,7 +44,7 @@ class CNF(object):
 
 	def SRU(n0,n1):
 		n = np.random.randint(n0,n1+1)
-		return SR(n)
+		return CNF.SR(n)
 	#end
 
 	def random_3SAT_critical(n):
@@ -157,14 +157,15 @@ def create_batchCNF(instances):
 	return BatchCNF(n,m,clauses,sat)
 #end
 
-def create_dataset(n=40, samples=1000, path="instances"):
+def create_dataset( n_min = 10, n_max = 40, samples = 1000, path = "instances" ):
 	for i in range(samples):
-		cnf1, cnf2 = CNF.SRU(10,40)
+		cnf1, cnf2 = CNF.SRU( 10, 40 )
 		cnf1.write_dimacs("{}/unsat/{}.cnf".format(path,i))
 		cnf2.write_dimacs("{}/sat/{}.cnf".format(path,i))
 	#end for
 #end
 
 if __name__ == '__main__':
-	create_dataset()
+	create_dataset( 10, 40, 25600, path = "instances" )
+	create_dataset( 40, 100, 128, path = "test_instances" )
 #end
