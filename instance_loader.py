@@ -9,10 +9,7 @@ class InstanceLoader(object):
 		self.path = path
 
 		self.filenames = [ 'instances/sat/'+x for x in os.listdir(path + '/sat')] + [ 'instances/unsat/'+x for x in os.listdir(path + '/unsat') ]
-		random.shuffle(self.filenames)
-
-		self.index = 0
-
+		self.reset()
 	#end
 
 	def get_instances(self, n_instances):
@@ -28,6 +25,10 @@ class InstanceLoader(object):
 		#end
 	#end
 
+	def reset(self):
+		random.shuffle( self.filenames )
+		self.index = 0
+	#end
 #end
 
 if __name__ == '__main__':
