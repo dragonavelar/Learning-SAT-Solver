@@ -1,12 +1,14 @@
 import tensorflow as tf
 import numpy as np
+from collections.abc import Sequence
 
 class Mlp(object):
 	def __init__(
 		self,
 		layer_sizes,
 		output_size = None,
-		activation = None,
+		activations = None,
+		output_activation = None,
 		use_bias = True,
 		kernel_initializer = None,
 		bias_initializer = tf.zeros_initializer(),
@@ -22,10 +24,17 @@ class Mlp(object):
 		"""Stacks len(layer_sizes) dense layers on top of each other, with an additional layer with output_size neurons, if specified."""
 		self.layers = []
 		internal_name = None
+		# If object isn't a list, assume it is a single value that will be repeated for all values
+		if not isinstance( activations, list ):
+			activations = [ activations for _ in layer_sizes ]
+		#end if
+		# If there is one specifically for the output, add it to the list of layers to be built
 		if output_size is not None:
 			layer_sizes = layer_sizes + [output_size]
+			activations = activations + [output_activation]
 		#end if
-		for i, size in enumerate( layer_sizes ):
+		for i, params in enumerate( zip( layer_sizes, activations ) ):
+			size, activation = params
 			if name_internal_layers:
 				internal_name = name + "_MLP_layer_{}".format( i + 1 )
 			#end if
@@ -64,7 +73,7 @@ class SAT_solver(object):
 		self.C_cell_activation = tf.nn.relu
 		self.L_msg_activation = tf.nn.relu
 		self.C_msg_activation = tf.nn.relu
-		self.L_vote_activation = tf.nn.tanh
+		self.L_vote_activation = tf.nn.relu
 		with tf.variable_scope( "SAT_solver" ):
 			with tf.variable_scope( "placeholders" ) as scope:
 				self._init_placeholders()
@@ -112,23 +121,23 @@ class SAT_solver(object):
 		# MLP that will decode a literal embedding as a message to the clause LSTM
 		self.L_msg_MLP = Mlp(
 			layer_sizes = [ self.embedding_size for _ in range(3) ],
+			activations = [ self.L_msg_activation for _ in range(2) ] + [ None ],
 			name = "L_msg",
-			activation = self.L_msg_activation,
 			name_internal_layers = True
 		)
 		# MLP that will decode a clause embedding as a message to the literal LSTM
 		self.C_msg_MLP = Mlp(
 			layer_sizes = [ self.embedding_size for _ in range(3) ],
+			activations = [ self.C_msg_activation for _ in range(2) ] + [ None ],
 			name = "C_msg",
-			activation = self.C_msg_activation,
 			name_internal_layers = True
 		)
 		# MLP that will decode a literal embedding as a vote for satisfiability
 		self.L_vote_MLP = Mlp(
 			layer_sizes = [ self.embedding_size for _ in range(2) ],
+			activations = [ self.L_vote_activation for _ in range(2) ],
 			output_size = 1,
 			name = "L_vote",
-			activation = self.L_vote_activation,
 			name_internal_layers = True
 		)
 		return
@@ -143,46 +152,47 @@ class SAT_solver(object):
 	#end _init_util_vars
 	
 	def _solve(self):
-		# TODO dependency scope to eliminate errors
-		pass
-		# Prepare the LSTM tuple for the starting state of the literal LSTM
-		L_cell_h0 = tf.tile( self.L_init , [ self.l, 1 ] )
-		L_cell_c0 = tf.zeros_like( L_cell_h0, dtype = tf.float32 )
-		L_state = tf.contrib.rnn.LSTMStateTuple( h = L_cell_h0, c = L_cell_c0 )
-		# Prepare the LSTM tuple for the starting state of the clause LSTM
-		C_cell_h0 = tf.tile( self.C_init , [ self.m, 1 ] )
-		C_cell_c0 = tf.zeros_like( C_cell_h0, dtype = tf.float32 )
-		C_state = tf.contrib.rnn.LSTMStateTuple( h = C_cell_h0, c = C_cell_c0 )
-		# Run self.time_steps iterations of message-passing
-		_, _, L_state, C_state = tf.while_loop(
-			self._message_while_cond,
-			self._message_while_body,
-			[ tf.constant(0), self.time_steps, L_state, C_state ]
-		)
-		# Get the last embeddings
-		self.L_n = L_state.h
-		self.C_n = C_state.h
-		self.L_vote = self.L_vote_MLP( self.L_n )
-		
-		predicted_SAT = tf.TensorArray( size = self.p, dtype = tf.float32 )
-		_, _, _, _, _, predicted_SAT, _ = tf.while_loop(
-			self._vote_while_cond,
-			self._vote_while_body,
-			[ tf.constant( 0, dtype = tf.int32 ), self.p, tf.constant( 0, dtype = tf.int32 ), self.n, self.num_vars_on_instance, predicted_SAT, self.L_vote ]
-		)
-		self.predicted_SAT = predicted_SAT.stack()
-		
-		self.loss = tf.losses.mean_squared_error( self.instance_SAT, self.predicted_SAT )
-		self.accuracy = tf.reduce_mean(
-			tf.cast(
-				tf.less_equal(
-					tf.sqrt( tf.squared_difference( self.instance_SAT, self.predicted_SAT ) ),
-					tf.constant( 0.5 )
-				)
-				, tf.float32
+		assert_length_equal = tf.Assert( tf.equal( self.p, tf.shape( self.num_vars_on_instance )[0] ), [ self.instance_SAT, self.num_vars_on_instance ] )
+		with tf.control_dependencies( [assert_length_equal] ):
+			# Prepare the LSTM tuple for the starting state of the literal LSTM
+			L_cell_h0 = tf.tile( self.L_init , [ self.l, 1 ] )
+			L_cell_c0 = tf.zeros_like( L_cell_h0, dtype = tf.float32 )
+			L_state = tf.contrib.rnn.LSTMStateTuple( h = L_cell_h0, c = L_cell_c0 )
+			# Prepare the LSTM tuple for the starting state of the clause LSTM
+			C_cell_h0 = tf.tile( self.C_init , [ self.m, 1 ] )
+			C_cell_c0 = tf.zeros_like( C_cell_h0, dtype = tf.float32 )
+			C_state = tf.contrib.rnn.LSTMStateTuple( h = C_cell_h0, c = C_cell_c0 )
+			# Run self.time_steps iterations of message-passing
+			_, _, L_state, C_state = tf.while_loop(
+				self._message_while_cond,
+				self._message_while_body,
+				[ tf.constant(0), self.time_steps, L_state, C_state ]
 			)
-		)
-		self.train_step = tf.train.AdamOptimizer( name = "Adam" ).minimize( self.loss )
+			# Get the last embeddings
+			self.L_n = L_state.h
+			self.C_n = C_state.h
+			self.L_vote = self.L_vote_MLP( self.L_n )
+		
+			predicted_SAT = tf.TensorArray( size = self.p, dtype = tf.float32 )
+			_, _, _, _, _, predicted_SAT, _ = tf.while_loop(
+				self._vote_while_cond,
+				self._vote_while_body,
+				[ tf.constant( 0, dtype = tf.int32 ), self.p, tf.constant( 0, dtype = tf.int32 ), self.n, self.num_vars_on_instance, predicted_SAT, self.L_vote ]
+			)
+			self.predicted_SAT = predicted_SAT.stack()
+		
+			self.loss = tf.losses.mean_squared_error( self.instance_SAT, self.predicted_SAT )
+			self.accuracy = tf.reduce_mean(
+				tf.cast(
+					tf.less_equal(
+						tf.sqrt( tf.squared_difference( self.instance_SAT, self.predicted_SAT ) ),
+						tf.constant( 0.5 )
+					)
+					, tf.float32
+				)
+			)
+			self.train_step = tf.train.AdamOptimizer( name = "Adam" ).minimize( self.loss )
+		#end assert length equal
 	#end _solve
 
 	def f(self):
