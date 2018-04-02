@@ -73,6 +73,8 @@ class SAT_solver(object):
 		self.parameter_l2norm_scaling = 1e-10
 		self.global_norm_gradient_clipping_ratio = 0.65
 		self.embedding_size = embedding_size
+		self.MLP_weight_initializer = tf.contrib.layers.xavier_initializer
+		self.MLP_bias_initializer = tf.zeros_initializer
 		self.L_cell_activation = tf.nn.relu
 		self.C_cell_activation = tf.nn.relu
 		self.L_msg_activation = tf.nn.relu
@@ -128,14 +130,18 @@ class SAT_solver(object):
 			layer_sizes = [ self.embedding_size for _ in range(3) ],
 			activations = [ self.L_msg_activation for _ in range(2) ] + [ None ],
 			name = "L_msg",
-			name_internal_layers = True
+			name_internal_layers = True,
+			kernel_initializer = self.MLP_weight_initializer(),
+			bias_initializer = self.MLP_bias_initializer()
 		)
 		# MLP that will decode a clause embedding as a message to the literal LSTM
 		self.C_msg_MLP = Mlp(
 			layer_sizes = [ self.embedding_size for _ in range(3) ],
 			activations = [ self.C_msg_activation for _ in range(2) ] + [ None ],
 			name = "C_msg",
-			name_internal_layers = True
+			name_internal_layers = True,
+			kernel_initializer = self.MLP_weight_initializer(),
+			bias_initializer = self.MLP_bias_initializer()
 		)
 		# MLP that will decode a literal embedding as a vote for satisfiability
 		self.L_vote_MLP = Mlp(
@@ -143,7 +149,9 @@ class SAT_solver(object):
 			activations = [ self.L_vote_activation for _ in range(2) ],
 			output_size = 1,
 			name = "L_vote",
-			name_internal_layers = True
+			name_internal_layers = True,
+			kernel_initializer = self.MLP_weight_initializer(),
+			bias_initializer = self.MLP_bias_initializer()
 		)
 		return
 	#end _init_parameters
@@ -192,12 +200,10 @@ class SAT_solver(object):
 			self.tvars = tf.trainable_variables()
 			for var in self.tvars:
 				self.vars_cost = tf.add( self.vars_cost, tf.nn.l2_loss( var ) )
-				#self.vars_cost += tf.nn.l2_loss( var )
 			#end for
 			self.vars_cost = tf.Print( self.vars_cost, [tf.shape( self.vars_cost )], "Vars ")
 			self.predict_cost = tf.Print( self.predict_cost, [tf.shape( self.predict_cost )], "Pred ")
 			self.loss = tf.add( self.predict_cost, tf.multiply( self.vars_cost, self.parameter_l2norm_scaling ) )
-			#self.loss = tf.identity( self.predict_cost + self.vars_cost * self.parameter_l2norm_scaling )
 			self.optimizer = tf.train.AdamOptimizer( name = "Adam", learning_rate = self.learning_rate )
 			self.grads, _ = tf.clip_by_global_norm( tf.gradients( self.loss, self.tvars ), self.global_norm_gradient_clipping_ratio )
 			self.train_step = self.optimizer.apply_gradients( zip( self.grads, self.tvars ) )
