@@ -167,5 +167,5 @@ def create_dataset( n_min = 10, n_max = 40, samples = 1000, path = "instances" )
 
 if __name__ == '__main__':
 	create_dataset( 10, 40, 25600, path = "instances" )
-	create_dataset( 40, 100, 128, path = "test_instances" )
+	create_dataset( 40, 40, 512, path = "test_instances" )
 #end
