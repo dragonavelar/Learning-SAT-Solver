@@ -181,7 +181,7 @@ class SAT_solver(object):
 			)
 			self.predicted_SAT = predicted_SAT.stack()
 			
-			self.loss = tf.losses.sigmoid_cross_entropy( self.instance_SAT, self.predicted_SAT )
+			self.loss = tf.nn.sigmoid_cross_entropy_with_logits( labels = self.instance_SAT, logits = self.predicted_SAT )
 			self.accuracy = tf.reduce_mean(
 				tf.cast(
 					tf.less_equal(
@@ -191,9 +191,9 @@ class SAT_solver(object):
 					, tf.float32
 				)
 			)
-			self.optimizer = tf.train.AdamOptimizer( name = "Adam" )
+			self.optimizer = tf.train.AdamOptimizer( name = "Adam", learning_rate = 2e-5 )
 			self.tvars = tf.trainable_variables()
-			self.grads, _ = tf.clip_by_global_norm( tf.gradients( self.loss, self.tvars ), 1 )
+			self.grads, _ = tf.clip_by_global_norm( tf.gradients( self.loss, self.tvars ), 0.65 )
 			self.train_step = self.optimizer.apply_gradients( zip( self.grads, self.tvars ) )
 		#end assert length equal
 	#end _solve

@@ -66,7 +66,7 @@ if __name__ == "__main__":
 	epochs = 100
 	d = 128
 	
-	time_steps = 16
+	time_steps = 26
 	batch_size = 64
 	batches_per_epoch = 50
 	# Since test instances are bigger
