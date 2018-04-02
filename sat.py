@@ -56,7 +56,7 @@ def run_and_log_batch( epoch, b, batch, time_steps, train = True ):
 #end run_and_log_batch
 
 if __name__ == "__main__":	
-	epochs = 100
+	epochs = 1000
 	d = 128
 	
 	time_steps = 26
