@@ -68,12 +68,17 @@ class Mlp(object):
 class SAT_solver(object):
 	
 	def __init__(self, embedding_size):
+		# Hyperparameters
+		self.learning_rate = 2e-5
+		self.parameter_l2norm_scaling = 1e-10
+		self.global_norm_gradient_clipping_ratio = 0.65
 		self.embedding_size = embedding_size
 		self.L_cell_activation = tf.nn.relu
 		self.C_cell_activation = tf.nn.relu
 		self.L_msg_activation = tf.nn.relu
 		self.C_msg_activation = tf.nn.relu
 		self.L_vote_activation = tf.nn.relu
+		# Build the network
 		with tf.variable_scope( "SAT_solver" ):
 			with tf.variable_scope( "placeholders" ) as scope:
 				self._init_placeholders()
@@ -181,20 +186,31 @@ class SAT_solver(object):
 			)
 			self.predicted_SAT = predicted_SAT.stack()
 			
-			self.loss = tf.nn.sigmoid_cross_entropy_with_logits( labels = self.instance_SAT, logits = self.predicted_SAT )
+			self.predict_costs = tf.nn.sigmoid_cross_entropy_with_logits( labels = self.instance_SAT, logits = self.predicted_SAT )
+			self.predict_cost = tf.reduce_mean( self.predict_costs )
+			self.vars_cost = tf.zeros([])
+			self.tvars = tf.trainable_variables()
+			for var in self.tvars:
+				self.vars_cost = tf.add( self.vars_cost, tf.nn.l2_loss( var ) )
+				#self.vars_cost += tf.nn.l2_loss( var )
+			#end for
+			self.vars_cost = tf.Print( self.vars_cost, [tf.shape( self.vars_cost )], "Vars ")
+			self.predict_cost = tf.Print( self.predict_cost, [tf.shape( self.predict_cost )], "Pred ")
+			self.loss = tf.add( self.predict_cost, tf.multiply( self.vars_cost, self.parameter_l2norm_scaling ) )
+			#self.loss = tf.identity( self.predict_cost + self.vars_cost * self.parameter_l2norm_scaling )
+			self.optimizer = tf.train.AdamOptimizer( name = "Adam", learning_rate = self.learning_rate )
+			self.grads, _ = tf.clip_by_global_norm( tf.gradients( self.loss, self.tvars ), self.global_norm_gradient_clipping_ratio )
+			self.train_step = self.optimizer.apply_gradients( zip( self.grads, self.tvars ) )
+			
 			self.accuracy = tf.reduce_mean(
 				tf.cast(
-					tf.less_equal(
-						tf.sqrt( tf.squared_difference( self.instance_SAT, self.predicted_SAT ) ),
-						tf.constant( 0.25 )
+					tf.equal(
+						tf.cast( self.instance_SAT, tf.bool ),
+						tf.cast( tf.round( tf.nn.sigmoid( self.predicted_SAT ) ), tf.bool )
 					)
 					, tf.float32
 				)
 			)
-			self.optimizer = tf.train.AdamOptimizer( name = "Adam", learning_rate = 2e-5 )
-			self.tvars = tf.trainable_variables()
-			self.grads, _ = tf.clip_by_global_norm( tf.gradients( self.loss, self.tvars ), 0.65 )
-			self.train_step = self.optimizer.apply_gradients( zip( self.grads, self.tvars ) )
 		#end assert length equal
 	#end _solve
 
