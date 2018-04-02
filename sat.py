@@ -18,7 +18,7 @@ def memory_usage():
 #end memory_usage
 
 def run_and_log_batch( epoch, b, batch, time_steps, train = True ):
-		sat = list( 1 if sat else -1 for sat in batch.sat )
+		sat = list( 1 if sat else 0 for sat in batch.sat )
 		# Build feed_dict
 		feed_dict = {
 			solver.time_steps: time_steps,
@@ -64,14 +64,14 @@ def run_and_log_batch( epoch, b, batch, time_steps, train = True ):
 
 if __name__ == "__main__":	
 	epochs = 100
-	d = 64
+	d = 128
 	
-	time_steps = 32
-	batch_size = 128
-	batches_per_epoch = 100
+	time_steps = 16
+	batch_size = 64
+	batches_per_epoch = 50
 	# Since test instances are bigger
 	test_time_steps = 64
-	test_batch_size = 16
+	test_batch_size = 8
 	
 	# Build model
 	print( "{timestamp}\t{memory}\tBuilding model ...".format( timestamp = timestamp(), memory = memory_usage() ) )

@@ -172,7 +172,7 @@ class SAT_solver(object):
 			self.L_n = L_state.h
 			self.C_n = C_state.h
 			self.L_vote = self.L_vote_MLP( self.L_n )
-		
+			
 			predicted_SAT = tf.TensorArray( size = self.p, dtype = tf.float32 )
 			_, _, _, _, _, predicted_SAT, _ = tf.while_loop(
 				self._vote_while_cond,
@@ -180,18 +180,21 @@ class SAT_solver(object):
 				[ tf.constant( 0, dtype = tf.int32 ), self.p, tf.constant( 0, dtype = tf.int32 ), self.n, self.num_vars_on_instance, predicted_SAT, self.L_vote ]
 			)
 			self.predicted_SAT = predicted_SAT.stack()
-		
-			self.loss = tf.losses.mean_squared_error( self.instance_SAT, self.predicted_SAT )
+			
+			self.loss = tf.losses.sigmoid_cross_entropy( self.instance_SAT, self.predicted_SAT )
 			self.accuracy = tf.reduce_mean(
 				tf.cast(
 					tf.less_equal(
 						tf.sqrt( tf.squared_difference( self.instance_SAT, self.predicted_SAT ) ),
-						tf.constant( 0.5 )
+						tf.constant( 0.25 )
 					)
 					, tf.float32
 				)
 			)
-			self.train_step = tf.train.AdamOptimizer( name = "Adam" ).minimize( self.loss )
+			self.optimizer = tf.train.AdamOptimizer( name = "Adam" )
+			self.tvars = tf.trainable_variables()
+			self.grads, _ = tf.clip_by_global_norm( tf.gradients( self.loss, self.tvars ), 1 )
+			self.train_step = self.optimizer.apply_gradients( zip( self.grads, self.tvars ) )
 		#end assert length equal
 	#end _solve
 
