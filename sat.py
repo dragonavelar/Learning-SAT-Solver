@@ -74,15 +74,29 @@ if __name__ == "__main__":
 	generator = instance_loader.InstanceLoader( "./instances" )
 	test_generator = instance_loader.InstanceLoader( "./test_instances" )
 
+	# Create model saver
+	saver = tf.train.Saver()
+
 	# Disallow GPU use
 	config = tf.ConfigProto( device_count = {"GPU":0})
 	with tf.Session(config=config) as sess:
+
 		# Initialize global variables
 		print( "{timestamp}\t{memory}\tInitializing global variables ... ".format( timestamp = timestamp(), memory = memory_usage() ) )
 		sess.run( tf.global_variables_initializer() )
+		
+		# Restore saved weights
+		print( "{timestamp}\t{memory}\tRestoring saved model ... ".format( timestamp = timestamp(), memory = memory_usage() ) )
+		saver.restore(sess, "./tmp/model.ckpt")
+
 		# Run for a number of epochs
 		print( "{timestamp}\t{memory}\tRunning for {} epochs".format( epochs, timestamp = timestamp(), memory = memory_usage() ) )
 		for epoch in range( epochs ):
+
+			# Save current weights
+			save_path = saver.save(sess, "./tmp/model.ckpt")
+			print( "{timestamp}\t{memory}\tMODEL SAVED IN PATH: {save_path}".format( timestamp = timestamp(), memory = memory_usage(), save_path=save_path ) )
+
 			# Reset training generator and run with a sample of the training instances
 			print( "{timestamp}\t{memory}\tTRAINING SET BEGIN".format( timestamp = timestamp(), memory = memory_usage() ) )
 			generator.reset()
