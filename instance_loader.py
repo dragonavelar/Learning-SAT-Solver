@@ -16,7 +16,7 @@ class InstanceLoader(object):
 			newfolders = []
 			for folder in folders:
 				newfolders += [ f for f in os.scandir(folder) if f.is_dir() ]
-				self.filenames += [ f.path for f in os.scandir(folder) if f.is_file() ]
+				self.filenames += [ f.path for f in os.scandir(folder) if f.is_file() and f.path.endswith(".cnf") ]
 			#end for
 			folders = newfolders
 		#end while
