@@ -22,7 +22,7 @@ if __name__ == "__main__":
 	# Create model saver
 	saver = tf.train.Saver()
 
-	with tf.Session(config=config) as sess:
+	with tf.Session() as sess:
 
 		# Initialize global variables
 		print( "{timestamp}\t{memory}\tInitializing global variables ... ".format( timestamp = timestamp(), memory = memory_usage() ) )
