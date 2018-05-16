@@ -53,7 +53,7 @@ class CNF(object):
 		cnf = CNF(n,m)
 
 		for i in range(m):
-			clause = [ int(np.random.randint(1,n+1) * np.choice([-1,+1])) for k in range(3) ]
+			clause = [ int(np.random.randint(1,n+1) * np.random.choice([-1,+1])) for k in range(3) ]
 			cnf.clauses.append( clause )
 		#end
 
@@ -165,7 +165,16 @@ def create_dataset( n_min = 10, n_max = 40, samples = 1000, path = "instances" )
 	#end for
 #end
 
+def create_critical_dataset( n = 40, samples = 512, path = "critical_instances" ):
+	for i in range( samples ):
+		cnf = CNF.random_3SAT_critical( n )
+		cnf.write_dimacs( "{}/{}.cnf".format( path, i ) )
+	#end for
+#end create_critical_dataset
+
 if __name__ == '__main__':
 	create_dataset( 10, 40, 25600, path = "instances" )
 	create_dataset( 40, 40, 512, path = "test_instances" )
+	create_critical_dataset( 40, 512, "critical_instances_40" )
+	create_critical_dataset( 80, 512, "critical_instances_80" )
 #end
