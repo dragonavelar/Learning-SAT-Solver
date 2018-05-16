@@ -1,4 +1,4 @@
-import sys, os, time
+import os
 os.environ['TF_CPP_MIN_LOG_LEVEL']='2'
 import tensorflow as tf
 import numpy as np
@@ -6,54 +6,7 @@ import matplotlib.pyplot as plt
 from model import SAT_solver
 import instance_loader
 import itertools
-
-def timestamp():
-	return time.strftime( "%Y%m%d%H%M%S", time.gmtime() )
-#end timestamp
-
-def memory_usage():
-	pid=os.getpid()
-	s = next( line for line in open( '/proc/{}/status'.format( pid ) ).read().splitlines() if line.startswith( 'VmSize' ) ).split()
-	return "{} {}".format( s[-2], s[-1] )
-#end memory_usage
-
-def run_and_log_batch( epoch, b, batch, time_steps, train = True ):
-		sat = list( 1 if sat else 0 for sat in batch.sat )
-		# Build feed_dict
-		feed_dict = {
-			solver.time_steps: time_steps,
-			solver.M: batch.get_sparse_matrix(),
-			solver.instance_SAT: np.array( sat ),
-			solver.num_vars_on_instance: batch.n
-		}
-		# Run session
-		if train:
-			_, pred_SAT, loss_val, accuracy_val = sess.run(
-					[ solver.train_step, solver.predicted_SAT, solver.loss, solver.accuracy ],
-					feed_dict = feed_dict
-			)
-		else:
-			pred_SAT, loss_val, accuracy_val = sess.run(
-					[ solver.predicted_SAT, solver.loss, solver.accuracy ],
-					feed_dict = feed_dict
-			)
-		#end if
-		# Print train step loss and accuracy, as well as predicted sat values compared with the normal ones
-		print(
-			"{timestamp}\t{memory}\tEpoch {epoch} Batch {batch} (n,m) ({n},{m}) Loss: {loss} Accuracy: {accuracy}".format(
-				timestamp = timestamp(),
-				memory = memory_usage(),
-				epoch = epoch,
-				batch = b,
-				loss = loss_val,
-				accuracy = accuracy_val,
-				n = batch.total_n,
-				m = batch.total_m
-			),
-			flush = True
-		)
-		return loss_val, accuracy_val
-#end run_and_log_batch
+from util import timestamp, memory_usage, run_and_log_batch
 
 if __name__ == "__main__":	
 	epochs = 100
@@ -103,13 +56,13 @@ if __name__ == "__main__":
 			epoch_loss = 0.0
 			epoch_accuracy = 0.0
 			for b, batch in itertools.islice( enumerate( generator.get_batches( batch_size ) ), batches_per_epoch ):
-				l, a = run_and_log_batch( epoch, b, batch, time_steps )
+				l, a, p = run_and_log_batch( sess, solver, epoch, b, batch, time_steps )
 				epoch_loss += l
 				epoch_accuracy += a
 			#end for
-			epoch_loss = epoch_loss / batches_per_epoch
-			epoch_accuracy = epoch_accuracy / batches_per_epoch
-			print( "{timestamp}\t{memory}\tTRAINING SET END Mean loss: {loss} Mean Accuracy = {accuracy}".format(
+			epoch_loss /= batches_per_epoch
+			epoch_accuracy /= batches_per_epoch
+			print( "{timestamp}\t{memory}\tTRAINING SET END Mean loss: {loss:.4f} Mean Accuracy = {accuracy:.4f}".format(
 				loss = epoch_loss,
 				accuracy = epoch_accuracy,
 				timestamp = timestamp(),
@@ -124,15 +77,15 @@ if __name__ == "__main__":
 			print( "{timestamp}\t{memory}\tTEST SET BEGIN".format( timestamp = timestamp(), memory = memory_usage() ) )
 			test_generator.reset()
 			for b, batch in enumerate( test_generator.get_batches( test_batch_size ) ):
-				l, a = run_and_log_batch( epoch, b, batch, test_time_steps, train = False )
+				l, a, p = run_and_log_batch( sess, solver, epoch, b, batch, test_time_steps, train = False )
 				test_loss += l
 				test_accuracy += a
 				test_batches += 1
 			#end for
 			# Summarize results and print test summary
-			test_loss = test_loss / test_batches
-			test_accuracy = test_accuracy / test_batches
-			print( "{timestamp}\t{memory}\tTEST SET END Mean loss: {loss} Mean Accuracy = {accuracy}".format(
+			test_loss /= test_batches
+			test_accuracy /= test_batches
+			print( "{timestamp}\t{memory}\tTEST SET END Mean loss: {loss:.4f} Mean Accuracy = {accuracy:.4f}".format(
 				loss = test_loss,
 				accuracy = test_accuracy,
 				timestamp = timestamp(),
