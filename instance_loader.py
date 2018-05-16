@@ -6,9 +6,20 @@ from cnf import CNF, BatchCNF, create_batchCNF
 class InstanceLoader(object):
 
 	def __init__(self,path):
-		self.path = path
-
-		self.filenames = [ 'instances/sat/'+x for x in os.listdir(path + '/sat')] + [ 'instances/unsat/'+x for x in os.listdir(path + '/unsat') ]
+		assert os.path.isdir( path ), "Path is not a directory. Path {}".format( path ) 
+		if path[-1] == "/":
+			path = path[0:-1]
+		#end if
+		folders = [path]
+		self.filenames = []
+		while len(folders)>0:
+			newfolders = []
+			for folder in folders:
+				newfolders += [ f for f in os.scandir(folder) if f.is_dir() ]
+				self.filenames += [ f.path for f in os.scandir(folder) if f.is_file() ]
+			#end for
+			folders = newfolders
+		#end while
 		self.reset()
 	#end
 
